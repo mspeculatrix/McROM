@@ -7,11 +7,27 @@ cmake_minimum_required(VERSION 3.22)
 # User is free to modify the file as much as necessary
 #
 
+cmake_minimum_required(VERSION 3.22)
+
 # Setup compiler settings
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+set(CMAKE_PROJECT_NAME McROM)
+project(${CMAKE_PROJECT_NAME})
+
+# Define paths to the files
+set(ROM_BINARY "${PROJECT_SOURCE_DIR}/rom.bin")
+set(ROM_OBJECT "${CMAKE_CURRENT_BINARY_DIR}/rom.o")
+
+# Tell CMake how to generate rom.o from rom.bin
+add_custom_command(
+    OUTPUT ${ROM_OBJECT}
+    COMMAND arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm ${ROM_BINARY} ${ROM_OBJECT}
+    DEPENDS ${ROM_BINARY}
+    COMMENT "Converting 6502 ROM binary to ARM object file..."
+)
 
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -32,7 +48,9 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 enable_language(C ASM)
 
 # Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME})
+add_executable(${CMAKE_PROJECT_NAME}
+    ${ROM_OBJECT}
+)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)

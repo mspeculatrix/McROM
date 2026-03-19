@@ -18,10 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "icache.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,14 +44,23 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+/* Linker symbols */
+extern const uint8_t _rom_bin_start[];
+extern const uint8_t _rom_bin_end[];
 
+/* 16KB RAM buffer */
+uint8_t rom_ram[16384] __attribute__((aligned(4)));
+
+/* Register Access Optimization */
+#define PA_DATA_MASK  (0x1F00)       // Bits 8-12
+#define PB_DATA_MASK  (0xE000)       // Bits 13-15
+#define PA_DATA_OUTPUT (0x01550000)  // MODER: PA8-12 as Output
+#define PB_DATA_OUTPUT (0x55000000)  // MODER: PB13-15 as Output
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_ICACHE_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -93,6 +104,20 @@ int main(void)
   MX_GPIO_Init();
   MX_ICACHE_Init();
   /* USER CODE BEGIN 2 */
+  
+  // Copy ROM to RAM
+  uint32_t start_addr = (uint32_t)_rom_bin_start;
+  uint32_t end_addr   = (uint32_t)_rom_bin_end;
+  size_t rom_size = end_addr - start_addr;
+  if (rom_size > 16384) rom_size = 16384;
+  memcpy(rom_ram, _rom_bin_start, rom_size);
+
+  GPIO_TypeDef *pA = GPIOA;
+  GPIO_TypeDef *pB = GPIOB;
+  GPIO_TypeDef *pC = GPIOC;
+
+  HAL_SuspendTick(); 
+  __disable_irq(); // Permanently disable for maximum timing consistency
 
   /* USER CODE END 2 */
 
@@ -100,6 +125,47 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+   // 1. Wait for /ROM_ENABLE (PA15) to go LOW
+    while (pA->IDR & (1 << 15)); 
+
+    // 2. Wait for /READ_EN (PB6) to go LOW
+    while (pB->IDR & (1 << 6));
+
+    // 3. Address Bus Reconstruction
+    uint32_t rA = pA->IDR;
+    uint32_t rB = pB->IDR;
+    uint32_t rC = pC->IDR;
+
+    uint16_t addr = 0;
+    if (rB & (1 << 10)) addr |= (1 << 0);
+    if (rB & (1 << 2))  addr |= (1 << 1);
+    if (rB & (1 << 1))  addr |= (1 << 2);
+    if (rB & (1 << 0))  addr |= (1 << 3);
+    if (rA & (1 << 7))  addr |= (1 << 4);
+    if (rA & (1 << 6))  addr |= (1 << 5);
+    if (rA & (1 << 3))  addr |= (1 << 6);
+    if (rA & (1 << 2))  addr |= (1 << 7);
+    if (rC & (1 << 14)) addr |= (1 << 8);
+    if (rC & (1 << 13)) addr |= (1 << 9);
+    if (rB & (1 << 4))  addr |= (1 << 10);
+    if (rB & (1 << 7))  addr |= (1 << 11);
+    if (rA & (1 << 1))  addr |= (1 << 12);
+    if (rC & (1 << 15)) addr |= (1 << 13);
+
+    uint8_t val = rom_ram[addr];
+
+    // 4. Drive Data Bus
+    pA->MODER = (pA->MODER & ~0x03FF0000) | PA_DATA_OUTPUT;
+    pB->MODER = (pB->MODER & ~0xFC000000) | PB_DATA_OUTPUT;
+    pA->ODR = (pA->ODR & ~PA_DATA_MASK) | ((val & 0xF8) << 5);
+    pB->ODR = (pB->ODR & ~PB_DATA_MASK) | ((val & 0x07) << 13);
+
+    // 5. Wait for /ROM_ENABLE to go HIGH
+    while (!(pA->IDR & (1 << 15)));
+
+    // 6. High-Z
+    pA->MODER &= ~0x03FF0000;
+    pB->MODER &= ~0xFC000000;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -162,128 +228,6 @@ void SystemClock_Config(void)
   /** Configure the programming delay
   */
   __HAL_FLASH_SET_PROGRAM_DELAY(FLASH_PROGRAMMING_DELAY_2);
-}
-
-/**
-  * @brief ICACHE Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ICACHE_Init(void)
-{
-
-  /* USER CODE BEGIN ICACHE_Init 0 */
-
-  /* USER CODE END ICACHE_Init 0 */
-
-  /* USER CODE BEGIN ICACHE_Init 1 */
-
-  /* USER CODE END ICACHE_Init 1 */
-
-  /** Enable instruction cache in 1-way (direct mapped cache)
-  */
-  if (HAL_ICACHE_ConfigAssociativityMode(ICACHE_1WAY) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_ICACHE_Enable() != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ICACHE_Init 2 */
-
-  /* USER CODE END ICACHE_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-
-  /* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, D0_Pin|D1_Pin|D2_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, D3_Pin|D4_Pin|D5_Pin|D6_Pin
-                          |D7_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : A9_Pin A8_Pin A13_Pin */
-  GPIO_InitStruct.Pin = A9_Pin|A8_Pin|A13_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : A12_Pin A7_Pin PA3 A5_Pin
-                           A4_Pin ROM_ENABLE_Pin */
-  GPIO_InitStruct.Pin = A12_Pin|A7_Pin|GPIO_PIN_3|A5_Pin
-                          |A4_Pin|ROM_ENABLE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : A3_Pin A2_Pin A1_Pin A0_Pin
-                           A10_Pin READ_EN_Pin A11_Pin */
-  GPIO_InitStruct.Pin = A3_Pin|A2_Pin|A1_Pin|A0_Pin
-                          |A10_Pin|READ_EN_Pin|A11_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : D0_Pin D1_Pin */
-  GPIO_InitStruct.Pin = D0_Pin|D1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : D2_Pin */
-  GPIO_InitStruct.Pin = D2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  HAL_GPIO_Init(D2_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : D3_Pin D4_Pin D5_Pin D6_Pin
-                           D7_Pin */
-  GPIO_InitStruct.Pin = D3_Pin|D4_Pin|D5_Pin|D6_Pin
-                          |D7_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-
-  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */

@@ -39,8 +39,9 @@ ENTRY(Reset_Handler)
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 272K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K
+  RAM    (xrw)    : ORIGIN = 0x20000000, LENGTH = 272K
+  FLASH   (rx)    : ORIGIN = 0x8000000,  LENGTH = 512K
+  ROM_DATA (r)    : ORIGIN = 0x08060000, LENGTH = 64K /* High end of Flash */
 }
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
@@ -85,6 +86,15 @@ SECTIONS
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
   } >FLASH
+
+.rom_section :
+  {
+    . = ALIGN(4);
+    _rom_bin_start = .;
+    KEEP(*(.data .data*)) /* Grab the data from rom.o */
+    . = ALIGN(4);
+    _rom_bin_end = .;
+  } > ROM_DATA
 
   .ARM.extab (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {

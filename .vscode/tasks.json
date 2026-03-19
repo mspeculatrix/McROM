@@ -35,6 +35,18 @@
 			"group": "build",
 			"problemMatcher": [],
 			"detail": "CMake template build task"
+		},
+		{
+			"type": "cmake",
+			"label": "STM32 CMake: clean",
+			"command": "build",
+			"targets": [
+				"clean"
+			],
+			"preset": "Debug",
+			"group": "build",
+			"problemMatcher": [],
+			"detail": "CMake template build task"
 		}
 	]
 }
