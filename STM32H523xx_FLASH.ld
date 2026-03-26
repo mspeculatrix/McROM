@@ -87,11 +87,13 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+/* ROM DATA */
 .rom_section :
   {
     . = ALIGN(4);
     _rom_bin_start = .;
-    KEEP(*(.data .data*)) /* Grab the data from rom.o */
+    /* Only grab the specific renamed section from rom.o */
+    KEEP(*( .6502_rom_section ))   
     . = ALIGN(4);
     _rom_bin_end = .;
   } > ROM_DATA
