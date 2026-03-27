@@ -9,7 +9,7 @@
 				"-c",
 				"port=SWD",
 				"-w",
-				"${workspaceFolder}/build/Debug/McROM.elf",
+				"${workspaceFolder}/build_linux/McROM.elf",
 				"-v"
 			],
 			"group": {

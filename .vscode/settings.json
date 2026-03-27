@@ -6,6 +6,7 @@
     "cmake.preferredGenerators": [
         "Ninja"
     ],
+    "cmake.buildDirectory": "${workspaceFolder}/build_linux",
     "stm32cube-ide-clangd.path": "cube",
     "stm32cube-ide-clangd.arguments": [
         "starm-clangd",
