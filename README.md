@@ -80,3 +80,8 @@ The STM32_Programmer_CLI is at the following locations:
 ```
 STM32_Programmer_CLI -c port=swd mode=UR -w build/Debug/McROM.elf 0x08000000 -v -rst
 ```
+
+## Branches
+
+- `**main**` - Code that is working to some significant extent.
+- `**dev**` - Work in progress. Probably not working.
