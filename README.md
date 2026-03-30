@@ -1,26 +1,38 @@
 # McROM
 
-STM32-based ROM emulator
+STM32-based ROM emulator. Based on the STM32H523CET6 running at 250MHz from its internal oscillator.
 
-Pin assignments
+The board matches the pinout of the 28-pin DIP AT28C256 EEPROM.
 
-Address bus
-A0   ->  PB10
-A1   ->  PB2
-A2   ->  PB1
-A3   ->  PB0
-A4   ->  PA7
-A5   ->  PA6
-A6   ->  PA3
-A7   ->  PA2
-A8   ->  PC14
-A9   ->  PC13
+Differences between the McROM and the EEPROM:
+
+- A14 (chip pin 1) is not connected on the McROM. It is connected on the EEPROM in order to select the upper 16KB of the EEPROM's 32KB memory space.
+- /WE (chip pin 27) is not connected on the McROM. On the Zolatron's CPU board, this pin is pulled high by a resistor.
+
+## PIN ASSIGNMENTS
+
+**Address bus**
+
+```
+ A0  ->  PB10
+ A1  ->  PB2
+ A2  ->  PB1
+ A3  ->  PB0
+ A4  ->  PA7
+ A5  ->  PA6
+ A6  ->  PA3
+ A7  ->  PA2
+ A8  ->  PC14
+ A9  ->  PC13
 A10  ->  PB4
 A11  ->  PB7
 A12  ->  PA1
 A13  ->  PC15
+```
 
-Data bus
+**Data bus**
+
+```
 D0  <-  PB13
 D1  <-  PB14
 D2  <-  PB15
@@ -29,10 +41,20 @@ D4  <-  PA9
 D5  <-  PA10
 D6  <-  PA11
 D7  <-  PA12
+```
 
-Control pins
+**Control pins**
+
+```
 READ_EN (/OE)    -  PB6
 ROM_ENABLE (/CE) - PA15
+```
+
+## Build script for Linux
+
+The `build_linux.sh` script is designed to be run on my MX Linux machine which is connected to the McROM board via an ST-LINK V2 programmer/debugger. It builds into the `build_linux` directory.
+
+Building the code on the Mac (to check if it compiles) builds into the `build` directory, but this won't make its way to the McROM board.
 
 ## COMMAND LINE
 

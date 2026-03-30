@@ -1,0 +1,391 @@
+This is the pin mapping between the 65C02 Zolatron and the STM32 McROM (double-checked against the board schematic):
+
+65C02      STM32H5
+
+Address bus
+
+ A0        PB10
+ A1        PB2
+ A2        PB1
+ A3        PB0
+ A4        PA7
+ A5        PA6
+ A6        PA3
+ A7        PA2
+ A8        PC14
+ A9        PC13
+A10        PB4
+A11        PB7
+A12        PA1
+A13        PC15
+
+Data bus
+
+D0         PB13
+D1         PB14
+D2         PB15
+D3         PA8
+D4         PA9
+D5         PA10
+D6         PA11
+D7         PA12
+
+Control pins
+
+READ_EN (/OE)    -  PB6
+ROM_ENABLE (/CE) - PA15
+
+
+And this is the current address reconstruction:
+
+// Reconstruct Address (Early calculation while PHI2 may still be LOW)
+uint16_t addr = 0;
+if (rB & (1 << 10)) addr |= (1 << 0);
+if (rB & (1 << 2))  addr |= (1 << 1);
+if (rB & (1 << 1))  addr |= (1 << 2);
+if (rB & (1 << 0))  addr |= (1 << 3);
+if (rA & (1 << 7))  addr |= (1 << 4);
+if (rA & (1 << 6))  addr |= (1 << 5);
+if (rA & (1 << 3))  addr |= (1 << 6);
+if (rA & (1 << 2))  addr |= (1 << 7);
+if (rC & (1 << 14)) addr |= (1 << 8);
+if (rC & (1 << 13)) addr |= (1 << 9);
+if (rB & (1 << 4))  addr |= (1 << 10);
+if (rB & (1 << 7))  addr |= (1 << 11);
+if (rA & (1 << 1))  addr |= (1 << 12);
+if (rC & (1 << 15)) addr |= (1 << 13);
+        
+uint8_t val = rom_ram[addr & 0x3FFF];
+
+
+----- NEW -----
+
+Picking this up again the next day.
+
+The while(1) loop is currently:
+
+  while (1) {
+    // Wait for Chip Enable (/ROM_ENABLE)
+    while (pA->IDR & (1 << 15)); 
+
+    // Wait for Output Enable (/READ_EN Low)
+    // This is when the 6502 guarantees the address bus is stable.
+    while (pB->IDR & (1 << 6)); 
+
+    // OPTIONAL: Tiny delay for address bus settling (e.g., 5-10 NOPs)
+    __asm__("nop"); __asm__("nop"); __asm__("nop"); __asm__("nop"); __asm__("nop");
+
+    // Sample the registers
+    uint32_t rA = pA->IDR; 
+    uint32_t rB = pB->IDR; 
+    uint32_t rC = pC->IDR;
+
+    // Reconstruct the address (This takes ~15-20 CPU cycles)
+    uint16_t addr = 0;
+    if (rB & (1 << 10)) addr |= (1 << 0);
+    if (rB & (1 << 2))  addr |= (1 << 1);
+    if (rB & (1 << 1))  addr |= (1 << 2);
+    if (rB & (1 << 0))  addr |= (1 << 3);
+    if (rA & (1 << 7))  addr |= (1 << 4);
+    if (rA & (1 << 6))  addr |= (1 << 5);
+    if (rA & (1 << 3))  addr |= (1 << 6);
+    if (rA & (1 << 2))  addr |= (1 << 7);
+    if (rC & (1 << 14)) addr |= (1 << 8);
+    if (rC & (1 << 13)) addr |= (1 << 9);
+    if (rB & (1 << 4))  addr |= (1 << 10);
+    if (rB & (1 << 7))  addr |= (1 << 11);
+    if (rA & (1 << 1))  addr |= (1 << 12);
+    if (rC & (1 << 15)) addr |= (1 << 13);
+
+    uint8_t val = rom_ram[addr];
+
+    // ***DEBUG*** LOGGING BLOCK ---
+    if (log_enabled) {
+      debug_addr_log[debug_idx] = addr;
+      debug_val_log[debug_idx] = val;
+      debug_idx++; 
+      // Optional: log_enabled = 0; // Uncomment to stop after first 256 samples
+    }
+    // ---------------------------
+
+    // Pre-stage the data
+    pB->ODR = (pB->ODR & ~0xE000) | ((val & 0x07) << 13);
+    pA->ODR = (pA->ODR & ~0x1F00) | ((val & 0xF8) << 5);
+
+    
+
+    // DRIVE THE BUS
+    // Because we pre-staged ODR, the data hits the pins the moment MODER changes.
+    pA->MODER = MODER_A_OUT;
+    pB->MODER = MODER_B_OUT;
+
+    // Wait for /READ_EN to go high again
+    while (!(pB->IDR & (1 << 6)));
+
+    // High-Z
+    pA->MODER = MODER_A_IN;
+    pB->MODER = MODER_B_IN;
+  }
+
+The values I captured in debug_addr_log, which seem to show a different loop of doom.
+
+16336
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16335
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16334
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16333
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16332
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16331
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16330
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16329
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16328
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16327
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16326
+82
+16383
+16380
+16381
+13818
+13818
+13818
+14850
+14807
+3182
+12522
+11246
+11246
+11246
+12564
+16350
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16349
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16348
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16347
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16346
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16345
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16344
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16343
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16342
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16341
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16340
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16339
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16338
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+16337
+82
+15901
+3182
+3182
+12522
+11246
+11246
+11246
+12564
+
+I have a new logic analyser capture which is triggered on the reset line going high. So, unlike the debug_addr_log numbers above, this does actually show what's happening at reset.
+
+----- SENT -----
