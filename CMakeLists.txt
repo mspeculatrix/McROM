@@ -12,6 +12,7 @@ add_executable(${CMAKE_PROJECT_NAME})
 # Add the CubeMX subdirectory
 add_subdirectory(cmake/stm32cubemx)
 
+# --------------- ROM STUFF ----------------------------------------------------
 # Handle the ROM binary
 set(ROM_BINARY "${PROJECT_SOURCE_DIR}/rom.bin")
 set(ROM_OBJECT "${CMAKE_CURRENT_BINARY_DIR}/rom.o")
@@ -27,6 +28,7 @@ add_custom_command(
 
 # Add custom objects and libraries to the target
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE "${ROM_OBJECT}")
+# ------------------------------------------------------------------------------
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     "$ENV{HOME}/Dev/Dev-STM/ms_stm32lib/Inc"

@@ -36,13 +36,17 @@
 ENTRY(Reset_Handler)
 
 
-/* Memories definition */
+/* 
+  Memories definition 
+  The ROM_DATA entry has been added specifically for the, well, ROM data
+*/
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000, LENGTH = 272K
   FLASH   (rx)    : ORIGIN = 0x8000000,  LENGTH = 512K
   ROM_DATA (r)    : ORIGIN = 0x08060000, LENGTH = 64K /* High end of Flash */
 }
+
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 _sstack = _estack - _Min_Stack_Size;
@@ -92,7 +96,10 @@ SECTIONS
   {
     . = ALIGN(4);
     _rom_bin_start = .;
-    /* Only grab the specific renamed section from rom.o */
+    /* 
+      Take only the specific renamed section from rom.o, as set up in the
+      CMakeLists.txt file
+    */
     KEEP(*( .6502_rom_section ))   
     . = ALIGN(4);
     _rom_bin_end = .;
