@@ -85,3 +85,4 @@ STM32_Programmer_CLI -c port=swd mode=UR -w build/Debug/McROM.elf 0x08000000 -v 
 
 - `**main**` - Code that is working to some significant extent.
 - `**dev**` - Work in progress. Probably not working.
+- `**vA1**` - This is a version that mostly works on the A1 version of the McROM board. It often takes several attempts to get a reset to work, but otherwise it looks good. It's a snapshot of the code on 12/04/2026.

@@ -76,6 +76,9 @@ void ROM_Emulator_Loop(GPIO_TypeDef *pA,
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  /*****************************************************************************
+  *****  SETUP                                                             *****
+  *****************************************************************************/
   /* USER CODE END 1 */
 
   MPU_Config();
@@ -197,10 +200,20 @@ void SystemClock_Config(void)
   */
 __attribute__((section(".RamFunc"), noinline))
 void ROM_Emulator_Loop(GPIO_TypeDef *pA, GPIO_TypeDef *pB, GPIO_TypeDef *pC) {
-  while (1) {
+  /* SYNC GUARD: Wait for /ROM_ENABLE to be HIGH before starting.
+  This prevents the STM32 from catching a partial cycle or 
+  power-on glitch during the 6502's reset phase. */
+  // while (!(pA->IDR & (1 << 15)));
+
+    while (1) {
+
     // Wait for Chip Enable (/ROM_ENABLE) on pin 15 to go LOW
     while (pA->IDR & (1 << 15)); 
     
+    // A very tiny delay to let the address bus stabilize
+    // 6502 addresses can have "skew" where some bits arrive slightly later.
+    __asm__("nop"); __asm__("nop"); __asm__("nop"); __asm__("nop");
+
     // We did previously wait for the PHI2-qualified /OE (/READ_EN)
     // to be low. But adding this broke things.
     // while (pB->IDR & (1 << 6)); 
