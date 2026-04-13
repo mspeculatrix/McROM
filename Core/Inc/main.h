@@ -67,6 +67,8 @@ void Error_Handler(void);
 #define A12_GPIO_Port GPIOA
 #define A7_Pin GPIO_PIN_2
 #define A7_GPIO_Port GPIOA
+#define ZRST_Pin GPIO_PIN_4
+#define ZRST_GPIO_Port GPIOA
 #define A5_Pin GPIO_PIN_6
 #define A5_GPIO_Port GPIOA
 #define A4_Pin GPIO_PIN_7

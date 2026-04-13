@@ -33,9 +33,9 @@
 
 /* USER CODE BEGIN PV */
 // These are labels defined in the ROM binary object rom.o
-extern uint8_t _binary_rom_bin_start[];
-extern uint8_t _binary_rom_bin_end[];
-extern uint8_t _binary_rom_bin_size;
+extern uint8_t _rom_bin_start[];
+extern uint8_t _rom_bin_end[];
+extern uint8_t _rom_bin_size;
 
 // Create an array to hold the ROM data. We'll be indexing into this
 // array to fetch the byte appropriate to a given address.
@@ -50,18 +50,17 @@ uint32_t lut_data_PA[256];
 uint32_t lut_data_PB[256];
 
 /* ***DEBUG*** Debugging Buffer */
-#define LOG_SIZE 256
-uint16_t debug_addr_log[LOG_SIZE];
-uint8_t  debug_val_log[LOG_SIZE];
-volatile uint8_t debug_idx = 0;
-volatile uint8_t log_enabled = 1; 
+// #define LOG_SIZE 256
+// uint16_t debug_addr_log[LOG_SIZE];
+// uint8_t  debug_val_log[LOG_SIZE];
+// volatile uint8_t debug_idx = 0;
+// volatile uint8_t log_enabled = 1; 
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
-
 /* USER CODE BEGIN PFP */
 // Prototype of the function that provides the main loop
 void ROM_Emulator_Loop(GPIO_TypeDef *pA, 
@@ -73,27 +72,69 @@ void ROM_Emulator_Loop(GPIO_TypeDef *pA,
 /* USER CODE BEGIN 0 */
 /* USER CODE END 0 */
 
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
   /*****************************************************************************
   *****  SETUP                                                             *****
   *****************************************************************************/
+  /* RESET CONTROL
+    We want to hold the 65C02 in reset BEFORE the STM32 does its own 
+    lengthy initialisation. PA4 is Open-Drain. Writing 0 pulls it LOW.
+
+    By setting the reset state in the first few instructions of main() (using 
+    raw register access), the 65C02 is held low while the STM32's voltage 
+    regulator stabilizes, the crystal oscillator warms up, and the LUTs are 
+    calculated.
+
+    We use the raw register here because HAL isn't initialised yet.
+    This ensures the 6502 stays reset even while the STM32 boots up.
+
+    When the code finally reaches pA->BSRR = (1 << 4); in the loop, the STM32 
+    is already running at 250MHz+ inside ITCM RAM. It will be waiting at the 
+    while (pA->IDR & (1 << 15)); line before the 65C02 even completes its 
+    internal 7-cycle reset sequence.
+  */
+  // RCC->IOPENR |= RCC_IOPENR_GPIOAEN; // Ensure Port A clock is on
+  // GPIOA->BSRR = (1 << (4 + 16));     // Atomic Reset (Set PA4 Low)
+  // GPIOA->OTYPER |= (1 << 4);         // Ensure PA4 is Open-Drain
+  // GPIOA->MODER &= ~(3 << (4 * 2));   // Clear MODER
+  // GPIOA->MODER |= (1 << (4 * 2));    // Set as Output
   /* USER CODE END 1 */
 
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
 
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_ICACHE_Init();
-  
   /* USER CODE BEGIN 2 */
   
   // Prepare RAM
   // The actual ROM size was defined in the binary object rom.o
   // as _binary_rom_bin_size
-  uintptr_t actual_rom_size = (uintptr_t)&_binary_rom_bin_size;
+  uintptr_t actual_rom_size = (uintptr_t)&_rom_bin_size;
   // Fill our array with 0s
   memset(rom_ram, 0, ROM_SIZE_BYTES);
   // We'll now copy the ROM data that was written into flash into our
@@ -101,7 +142,7 @@ int main(void)
   if (actual_rom_size > 0) {
     uint32_t copy_limit = (actual_rom_size > ROM_SIZE_BYTES) 
       ? ROM_SIZE_BYTES : (uint32_t)actual_rom_size;
-    memcpy(rom_ram, _binary_rom_bin_start, copy_limit);
+    memcpy(rom_ram, _rom_bin_start, copy_limit);
   } else {
     // Something went wrong, so let's fill the aray with NOP opcodes
     memset(rom_ram, 0xEA, ROM_SIZE_BYTES); // NOP Fill
@@ -139,9 +180,13 @@ int main(void)
   // We shouldn't get any further than this.
   /* USER CODE END 2 */
 
-  while (1) {
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
 
-  /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -155,9 +200,15 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
+  /** Configure the main internal regulator output voltage
+  */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
+
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_CSI;
   RCC_OscInitStruct.CSIState = RCC_CSI_ON;
   RCC_OscInitStruct.CSICalibrationValue = RCC_CSICALIBRATION_DEFAULT;
@@ -176,6 +227,8 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_PCLK3;
@@ -190,6 +243,8 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Configure the programming delay
+  */
   __HAL_FLASH_SET_PROGRAM_DELAY(FLASH_PROGRAMMING_DELAY_2);
 }
 
@@ -200,10 +255,12 @@ void SystemClock_Config(void)
   */
 __attribute__((section(".RamFunc"), noinline))
 void ROM_Emulator_Loop(GPIO_TypeDef *pA, GPIO_TypeDef *pB, GPIO_TypeDef *pC) {
-  /* SYNC GUARD: Wait for /ROM_ENABLE to be HIGH before starting.
-  This prevents the STM32 from catching a partial cycle or 
-  power-on glitch during the 6502's reset phase. */
-  // while (!(pA->IDR & (1 << 15)));
+    /* RELEASE THE 65C02:
+    Now that the STM32 is fully initialised, in ITCM RAM, and interrupts are 
+    off, we release the ZRST line (PA4). Setting BSRR bit 4 pulls it High-Z, 
+    allowing the external pull-up to bring the 6502 to life.
+    */
+    pA->BSRR = (1 << 4);
 
     while (1) {
 
@@ -270,13 +327,18 @@ void ROM_Emulator_Loop(GPIO_TypeDef *pA, GPIO_TypeDef *pB, GPIO_TypeDef *pC) {
 }
 /* USER CODE END 4 */
 
-/* MPU Configuration */
+ /* MPU Configuration */
+
 void MPU_Config(void)
 {
   MPU_Region_InitTypeDef MPU_InitStruct = {0};
   MPU_Attributes_InitTypeDef MPU_AttributesInit = {0};
 
+  /* Disables the MPU */
   HAL_MPU_Disable();
+
+  /** Initializes and configures the Region 0 and the memory to be protected
+  */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.BaseAddress = 0x08FFF000;
@@ -285,12 +347,18 @@ void MPU_Config(void)
   MPU_InitStruct.AccessPermission = MPU_REGION_ALL_RO;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
   MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
+  /** Initializes and configures the Attribute 0 and the memory to be protected
+  */
   MPU_AttributesInit.Number = MPU_ATTRIBUTES_NUMBER0;
   MPU_AttributesInit.Attributes = INNER_OUTER(MPU_NOT_CACHEABLE);
+
   HAL_MPU_ConfigMemoryAttributes(&MPU_AttributesInit);
+  /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
+
 }
 
 /**
@@ -323,4 +391,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-

@@ -103,6 +103,7 @@ SECTIONS
     KEEP(*( .6502_rom_section ))   
     . = ALIGN(4);
     _rom_bin_end = .;
+    _rom_bin_size = . - _rom_bin_start;
   } > ROM_DATA
 
   .ARM.extab (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */

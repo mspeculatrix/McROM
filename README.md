@@ -9,6 +9,13 @@ Differences between the McROM and the EEPROM:
 - A14 (chip pin 1) is not connected on the McROM. It is connected on the EEPROM in order to select the upper 16KB of the EEPROM's 32KB memory space.
 - /WE (chip pin 27) is not connected on the McROM. On the Zolatron's CPU board, this pin is pulled high by a resistor.
 
+## ARTICLES
+
+This project is covered in detail in articles published in _Machina Speculatrix_ on Medium (Medium subscription required).
+
+- [_McROM: A microcontroller-based ROM emulator for a homebrew computer_](https://medium.com/machina-speculatrix/mcrom-a-microcontroller-based-rom-emulator-for-a-homebrew-computer-f781eef353e4)
+- [_McROM: STM32 code for a ROM emulator_](https://medium.com/machina-speculatrix/mcrom-stm32-code-for-a-rom-emulator-3f158b4eed16)
+
 ## PIN ASSIGNMENTS
 
 **Address bus**

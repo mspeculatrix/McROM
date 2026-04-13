@@ -26,16 +26,6 @@ echo "Building & Flashing McROM Firmware"
 echo "=================================="
 echo "Timestamp: $(date +%Y%m%d_%H%M%S)"
 echo
-echo "*** Regenerating rom.o from $ROM_BINARY ***"
-if [[ -f "$ROM_BINARY" ]]; then
-    # This ensures the ROM data is in the format the ARM linker expects
-    arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm \
-        --rename-section .data=.rom_image \
-        "$ROM_BINARY" "$BUILD_DIR/rom.o"
-else
-    echo "!! Error: $ROM_BINARY not found in the project root directory"
-    exit 1
-fi
 
 echo "*** Checking build configuration ***"
 # Create the build dir if it doesn't exist
