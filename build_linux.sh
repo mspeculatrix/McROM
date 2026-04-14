@@ -44,8 +44,11 @@ fi
 
 # Reconfigure to ensure paths and flags are correct
 # Using the absolute path for the linker script
-echo "*** Reconfiguring CMake environment ***"
+echo "*** Configuring the CMake environment ***"
 cd "$BUILD_DIR"
+
+ninja -t clean
+
 cmake -G Ninja .. \
   -DCMAKE_C_COMPILER=arm-none-eabi-gcc \
   -DCMAKE_ASM_COMPILER=arm-none-eabi-gcc \

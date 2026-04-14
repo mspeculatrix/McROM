@@ -1,60 +1,58 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Flash STM32",
-			"type": "shell",
-			"command": "/Applications/STMicroelectronics/STM32Cube/STM32CubeProgrammer/STM32CubeProgrammer.app/Contents/MacOs/STM32CubeProgrammer",
-			"args": [
-				"-c",
-				"port=SWD",
-				"-w",
-				"${workspaceFolder}/build_linux/McROM.elf",
-				"-v"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": "false"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"focus": false,
-				"panel": "shared"
-			},
-			"problemMatcher": []
-		},
-		{
-			"type": "cmake",
-			"label": "STM32 CMake: build",
-			"command": "build",
-			"targets": [
-				"all"
-			],
-			"preset": "Debug",
-			"group": "build",
-			"problemMatcher": [],
-			"detail": "CMake template build task"
-		},
-		{
-			"type": "cmake",
-			"label": "STM32 CMake: clean",
-			"command": "build",
-			"targets": [
-				"clean"
-			],
-			"preset": "Debug",
-			"group": "build",
-			"problemMatcher": [],
-			"detail": "CMake template build task"
-		},
-		{
-			"type": "cmake",
-			"label": "CMake: clean",
-			"command": "clean",
-			"preset": "Debug",
-			"problemMatcher": [],
-			"detail": "CMake template clean task"
-		}
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Ninja: Clean",
+            "type": "shell",
+            "command": "ninja",
+            "args": [
+                "-t",
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build_linux"
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Runs 'ninja -t clean' in the build directory."
+        },
+        {
+            "label": "Flash STM32",
+            "type": "shell",
+            "command": "/Applications/STMicroelectronics/STM32Cube/STM32CubeProgrammer/STM32CubeProgrammer.app/Contents/MacOs/STM32CubeProgrammer",
+            "args": [
+                "-c",
+                "port=SWD",
+                "-w",
+                "${workspaceFolder}/build_linux/McROM.elf",
+                "-v"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "cmake",
+            "label": "STM32 CMake: build",
+            "command": "build",
+            "targets": [
+                "all"
+            ],
+            "preset": "Debug",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Standard CMake build"
+        }
+    ]
 }
